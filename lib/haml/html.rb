@@ -83,10 +83,12 @@ module Haml
         Haml::Util.check_encoding(template) {|msg, line| raise Haml::Error.new(msg, line)}
 
         if @options[:rhtml]
+          match_to_nested_start_end_html(template, /<%-?(.*?\b(?:do|if|unless|while|for)\b.*?)-?%>([^<]*?)<%-?\s*end\s*-?%>/, 'silent')
+          match_to_nested_start_html(template, /<%-?(.*?(?:do|if|unless|while|for)\b.*?)-?%>/, 'silent')
+          match_to_nested_end_html(template, /<%-?\s*end\s*-?%>/m, 'silent')
           match_to_html(template, /<%=(.*?)-?%>/m, 'loud')
           match_to_html(template, /<%-?(.*?)-?%>/m,  'silent')
         end
-
         method = @options[:xhtml] ? Hpricot.method(:XML) : method(:Hpricot)
         @template = method.call(template.gsub('&', '&amp;'))
       end
@@ -170,7 +172,14 @@ module Haml
       def to_haml(tabs, options)
         output = "#{tabulate(tabs)}"
         if options[:rhtml] && name[0...5] == 'haml:'
-          return output + send("haml_tag_#{name[5..-1]}", CGI.unescapeHTML(self.inner_text))
+          output += (self.children || []).inject("") do |out, child|
+            if child.text?
+              out + send("haml_tag_#{name[5..-1]}", CGI.unescapeHTML(child.inner_text))
+            else
+              out + child.to_haml(tabs + 1, options)
+            end
+          end
+          return output
         end
 
         output += "%#{name}" unless name == 'div' &&
@@ -215,7 +224,11 @@ module Haml
       end
 
       def haml_tag_silent(text)
-        text.split("\n").map { |line| "- #{line.strip}\n" }.join
+        text.strip.split("\n").map { |line| "- #{line.strip}\n" }.join
+      end
+      
+      def haml_tag_html(text)
+        "#{text.strip}\n"
       end
 
       def static_attribute?(name, options)
@@ -251,6 +264,27 @@ module Haml
     def match_to_html(string, regex, tag)
       string.gsub!(regex) do
         "<haml:#{tag}>#{CGI.escapeHTML($1)}</haml:#{tag}>"
+      end
+    end
+    
+    def match_to_nested_start_html(string, regex, tag)
+      string.gsub!(regex) do
+        ruby = CGI.escapeHTML($1)
+        "<haml:#{tag}>#{ruby}"
+      end
+    end
+    
+    def match_to_nested_end_html(string, regex, tag)
+      string.gsub!(regex) do
+        "</haml:#{tag}>"
+      end
+    end
+    
+    def match_to_nested_start_end_html(string, regex, tag)
+      string.gsub!(regex) do
+        ruby = CGI.escapeHTML($1)
+        content = $2
+        "<haml:#{tag}>#{ruby}\n<haml:html>#{content}</haml:html>"
       end
     end
   end

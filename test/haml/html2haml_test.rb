@@ -74,6 +74,65 @@ class Html2HamlTest < Test::Unit::TestCase
       render_rhtml(%Q{<%- form_for -%>})
   end
 
+  def test_blocks_and_consuming_end_tags
+    html = <<-HTML.gsub(/^    /, '')
+    <% if @post %>
+      <% @post.comments.each do |comment| -%>
+        <p><%= comment.name %></p>
+      <% end -%>
+    <% end %>
+    HTML
+    expected = <<-EOS.gsub(/^    /, '').strip
+    - if @post
+      - @post.comments.each do |comment|
+        %p
+          = comment.name
+    EOS
+    assert_equal expected, render_rhtml(html)
+  end
+
+  def test_content_for_block
+    html = <<-HTML.gsub(/^    /, '')
+    <% content_for :header do %>
+      My Header
+    <% end %>
+    HTML
+    expected = <<-RUBY.gsub(/^    /, '').strip
+    - content_for :header do
+      My Header
+    RUBY
+    assert_equal expected, render_rhtml(html)
+  end
+  
+  def test_intermediate_format_with_load_and_silent_tags
+    html = <<-HTML.gsub(/^    /, '')
+    <p>Hi there</p>
+    <haml:silent>
+      if @post
+      <haml:loud>@post.title</haml:loud>
+      else
+      <haml:loud>"Unknown"</haml:loud>
+    </haml:silent>
+    <haml:silent> content_for :header do 
+      <haml:html>My Header</haml:html>
+    </haml:silent>
+    <p>Goodbye</p>
+    HTML
+    expected = <<-HAML.gsub(/^    /, '').strip
+    %p
+      Hi there
+    - if @post
+      = @post.title
+    - else
+      = "Unknown"
+    - content_for :header do
+      My Header
+    %p
+      Goodbye
+    HAML
+    assert_equal expected, render_rhtml(html)
+  end
+
   def test_cdata
     assert_equal(<<HAML.strip, render(<<HTML))
 %p
