@@ -96,6 +96,9 @@ class Html2HamlTest < Test::Unit::TestCase
     <% content_for :header do %>
       My Header
     <% end %>
+    <% content_for :account do -%>
+      Logged as <a href="#" title="Admin">Admin</a> (<a href="#" title="Logout">logout</a>)
+    <% end -%>
     <% content_for :footer do %>
       My Footer
     <% end %>
@@ -103,6 +106,14 @@ class Html2HamlTest < Test::Unit::TestCase
     expected = <<-RUBY.gsub(/^    /, '').strip
     - content_for :header do
       My Header
+    - content_for :account do
+      Logged as
+      %a{ :href => "#", :title => "Admin" }
+        Admin
+      (
+      %a{ :href => "#", :title => "Logout" }
+        logout
+      )
     - content_for :footer do
       My Footer
     RUBY

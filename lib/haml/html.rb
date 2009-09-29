@@ -83,7 +83,7 @@ module Haml
         Haml::Util.check_encoding(template) {|msg, line| raise Haml::Error.new(msg, line)}
 
         if @options[:rhtml]
-          match_to_nested_start_end_html(template, /<%-?(.*?\b(?:do|if|unless|while|for)\b.*?)-?%>([^<]*?)<%-?\s*end\s*-?%>/, 'silent')
+          match_to_nested_start_end_html(template, /<%-?(.*?\b(?:do|if|unless|while|for)\b.*?)-?%>([^%]*?)<%-?\s*end\s*-?%>/, 'silent')
           match_to_nested_start_html(template, /<%-?(.*?(?:do|if|unless|while|for)\b.*?)-?%>/, 'silent')
           match_to_nested_end_html(template, /<%-?\s*end\s*-?%>/m, 'silent')
           match_to_html(template, /<%=(.*?)-?%>/m, 'loud')
@@ -171,13 +171,17 @@ module Haml
     class ::Hpricot::Elem
       # @see Haml::HTML::Node#to_haml
       def to_haml(tabs, options)
-        output = "#{tabulate(tabs)}"
+        output = tab_prefix = "#{tabulate(tabs)}"
         if options[:rhtml] && name[0...5] == 'haml:'
-          output += (self.children || []).inject("") do |out, child|
+          output = (self.children || []).inject("") do |out, child|
             if child.text?
-              out + send("haml_tag_#{name[5..-1]}", CGI.unescapeHTML(child.inner_text))
-            else
+              text = CGI.unescapeHTML(child.inner_text).strip
+              next out if text.empty?
+              out + tab_prefix + send("haml_tag_#{name[5..-1]}", text)
+            elsif child.name[0...5] == 'haml:'
               out + child.to_haml(tabs + 1, options)
+            else
+              out + child.to_haml(tabs, options)
             end
           end
           return output
@@ -225,10 +229,12 @@ module Haml
       end
 
       def haml_tag_silent(text)
+        # puts "haml_tag_silent(#{text.strip.inspect})"
         text.strip.split("\n").map { |line| "- #{line.strip}\n" }.join
       end
       
       def haml_tag_html(text)
+        # puts "haml_tag_html(#{text.strip.inspect})"
         "#{text.strip}\n"
       end
 
