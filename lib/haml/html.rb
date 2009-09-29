@@ -89,6 +89,7 @@ module Haml
           match_to_html(template, /<%=(.*?)-?%>/m, 'loud')
           match_to_html(template, /<%-?(.*?)-?%>/m,  'silent')
         end
+
         method = @options[:xhtml] ? Hpricot.method(:XML) : method(:Hpricot)
         @template = method.call(template.gsub('&', '&amp;'))
       end
@@ -284,7 +285,7 @@ module Haml
       string.gsub!(regex) do
         ruby = CGI.escapeHTML($1)
         content = $2
-        "<haml:#{tag}>#{ruby}\n<haml:html>#{content}</haml:html>"
+        "<haml:#{tag}>#{ruby}\n<haml:html>#{content}</haml:html></haml:#{tag}>"
       end
     end
   end

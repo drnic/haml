@@ -96,10 +96,15 @@ class Html2HamlTest < Test::Unit::TestCase
     <% content_for :header do %>
       My Header
     <% end %>
+    <% content_for :footer do %>
+      My Footer
+    <% end %>
     HTML
     expected = <<-RUBY.gsub(/^    /, '').strip
     - content_for :header do
       My Header
+    - content_for :footer do
+      My Footer
     RUBY
     assert_equal expected, render_rhtml(html)
   end
