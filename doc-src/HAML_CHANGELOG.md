@@ -29,6 +29,28 @@ Haml and `html2haml` now produce more descriptive errors
 when given a template with invalid byte sequences for that template's encoding,
 including the line number and the offending character.
 
+### `html2haml` Improvements
+
+`html2haml` has much better support for ERb.
+
+For example, the following HTML/ERb converts correctly now:
+
+    <% if @post %>
+      <% @post.comments.each do |comment| -%>
+        <p><%= comment.name %></p>
+      <% end -%>
+    <% end %>
+
+into:
+
+    - if @post
+      - @post.comments.each do |comment|
+        %p
+          = comment.name
+
+Thanks to [Jack Chen](http://chendo.net) and [Dr Nic Williams](http://drnicwilliams.com).
+        
+
 ## [2.2.6](http://github.com/nex3/haml/commit/2.2.6)
 
 * Made the error message when unable to load a dependency for html2haml
