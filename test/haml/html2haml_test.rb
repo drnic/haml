@@ -91,6 +91,55 @@ class Html2HamlTest < Test::Unit::TestCase
     assert_equal expected, render_rhtml(html)
   end
 
+  def test_advanced_template
+    html = <<-HTML.gsub(/^    /, '')
+    <%
+      date = Date.today
+      date = date.to_s
+    %>
+    <% if @post %>
+      <p><%= "only do for each comment" %></p>
+      <p>- Don't chomp minus -</p>
+      <p class="class_name" id="foo" other_attribute="value">
+        This
+        is
+        multiline
+        HTML text
+      </p>
+      <%= @post.comments.map do |comment|
+        comment.name
+      end.join("\\n") %>
+      <% @post.comments.each do |comment| -%>
+        <p><%= "for inside each comment do something" %></p>
+      <% end -%>
+    <% end %>
+    HTML
+    
+    # The 'extra' space on the 'end.join("\\n")' is meant to
+    # be there since the escape makes it one character less
+    expected = <<-EOS.gsub(/^    /, '').strip
+    - date = Date.today
+    - date = date.to_s
+    - if @post
+      %p
+        = "only do for each comment"
+      %p
+        \\- Don't chomp minus -
+      %p#foo.class_name{ :other_attribute => "value" }
+        This
+        is
+        multiline
+        HTML text
+      = @post.comments.map do |comment| |
+        comment.name                    |
+        end.join("\\n")                  |
+      - @post.comments.each do |comment|
+        %p
+          = "for inside each comment do something"
+    EOS
+    assert_equal expected, render_rhtml(html)
+  end  
+  
   def test_content_for_block
     html = <<-HTML.gsub(/^    /, '')
     <% content_for :header do %>
@@ -120,17 +169,21 @@ class Html2HamlTest < Test::Unit::TestCase
     assert_equal expected, render_rhtml(html)
   end
   
-  def test_intermediate_format_with_load_and_silent_tags
+  def test_intermediate_format_with_loud_and_silent_tags
     html = <<-HTML.gsub(/^    /, '')
     <p>Hi there</p>
     <haml:silent>
       if @post
-      <haml:loud>@post.title</haml:loud>
+      <haml:block>
+        <haml:loud>@post.title</haml:loud>
+      </haml:block>
       else
-      <haml:loud>"Unknown"</haml:loud>
+      <haml:block>
+        <haml:loud>"Unknown"</haml:loud>
+      </haml:block>
     </haml:silent>
     <haml:silent> content_for :header do 
-      <haml:html>My Header</haml:html>
+      <haml:block>My Header</haml:block>
     </haml:silent>
     <p>Goodbye</p>
     HTML

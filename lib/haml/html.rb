@@ -3,6 +3,8 @@ require File.dirname(__FILE__) + '/../haml'
 require 'haml/engine'
 require 'rubygems'
 require 'cgi'
+require 'haml/herb'
+require 'parse_tree'
 
 module Haml
   class HTML
@@ -83,11 +85,7 @@ module Haml
         Haml::Util.check_encoding(template) {|msg, line| raise Haml::Error.new(msg, line)}
 
         if @options[:rhtml]
-          match_to_nested_start_end_html(template, /<%-?(.*?\b(?:do|if|unless|while|for)\b.*?)-?%>([^%]*?)<%-?\s*end\s*-?%>/, 'silent')
-          match_to_nested_start_html(template, /<%-?(.*?(?:do|if|unless|while|for)\b.*?)-?%>/, 'silent')
-          match_to_nested_end_html(template, /<%-?\s*end\s*-?%>/m, 'silent')
-          match_to_html(template, /<%=(.*?)-?%>/m, 'loud')
-          match_to_html(template, /<%-?(.*?)-?%>/m,  'silent')
+          template = convert_to_hamlified_markup(template)
         end
 
         method = @options[:xhtml] ? Hpricot.method(:XML) : method(:Hpricot)
@@ -176,10 +174,13 @@ module Haml
           output = (self.children || []).inject("") do |out, child|
             if child.text?
               text = CGI.unescapeHTML(child.inner_text).strip
+              text.gsub!(/(^[- ]+)|([- ]+$)/, '')
               next out if text.empty?
-              out + tab_prefix + send("haml_tag_#{name[5..-1]}", text)
-            elsif child.name[0...5] == 'haml:'
+              out + tab_prefix + send("haml_tag_#{name[5..-1]}", text, tab_prefix)
+            elsif child.name[0...10] == 'haml:block'
               out + child.to_haml(tabs + 1, options)
+            elsif child.name[0...5] == 'haml:'
+              out + child.to_haml(tabs, options)
             else
               out + child.to_haml(tabs, options)
             end
@@ -224,17 +225,23 @@ module Haml
         end
       end
 
-      def haml_tag_loud(text)
-        "= #{text.gsub(/\n\s*/, ' ').strip}\n"
+      def haml_tag_loud(text, tab_prefix = '')
+        if text =~ /\n/
+          lines = text.strip.split(/\n+/)
+          pad_size = lines.map { |line| line.length }.max + 1
+          out = lines.map { |line| tab_prefix + "  " + line.ljust(pad_size) + '|' }.join("\n")
+          out[0...4] = "= "
+          out + "\n"
+        else
+          "= #{text.gsub(/\n\s*/, ' ').strip}\n"
+        end
       end
 
-      def haml_tag_silent(text)
-        # puts "haml_tag_silent(#{text.strip.inspect})"
-        text.strip.split("\n").map { |line| "- #{line.strip}\n" }.join
+      def haml_tag_silent(text, tab_prefix = '')
+        text.strip.split("\n").map { |line| "- #{line.strip}" }.join("\n#{tab_prefix}") + "\n"
       end
       
-      def haml_tag_html(text)
-        # puts "haml_tag_html(#{text.strip.inspect})"
+      def haml_tag_block(text, tab_prefix = '')
         "#{text.strip}\n"
       end
 
@@ -267,32 +274,35 @@ module Haml
     end
 
     private
+    
+    TOKEN_DELIMITER = '__oHg5SJYRHA0__'
+    
+    def convert_to_hamlified_markup(string)      
+      output = ''
+      compiler = ERB::HamlCompiler.new(nil)
+      compiler.insert_cmd = compiler.put_cmd = '_erbout.concat'
 
-    def match_to_html(string, regex, tag)
-      string.gsub!(regex) do
-        "<haml:#{tag}>#{CGI.escapeHTML($1)}</haml:#{tag}>"
+      lines = compiler.compile(string, TOKEN_DELIMITER).split(TOKEN_DELIMITER)
+      lines.each do |code|
+        code.gsub!(/(^[- ]+)|([- ]+$)/, '')
+        output << if code[0...15] == '_erbout.concat '
+          code[0...15] = ''
+          eval(code)
+        elsif code =~ /^_erbout\.concat\(\((.*)\)\.to_s\)$/m
+          "<haml:loud>#{$1}</haml:loud>"
+        elsif code == 'end'
+          "</haml:block></haml:silent>"
+        else
+          begin
+            ParseTree.translate(code)
+            "<haml:silent>#{code}</haml:silent>"
+          rescue Exception
+            "<haml:silent>#{code}<haml:block>"
+          end
+        end
       end
+      output
     end
-    
-    def match_to_nested_start_html(string, regex, tag)
-      string.gsub!(regex) do
-        ruby = CGI.escapeHTML($1)
-        "<haml:#{tag}>#{ruby}"
-      end
-    end
-    
-    def match_to_nested_end_html(string, regex, tag)
-      string.gsub!(regex) do
-        "</haml:#{tag}>"
-      end
-    end
-    
-    def match_to_nested_start_end_html(string, regex, tag)
-      string.gsub!(regex) do
-        ruby = CGI.escapeHTML($1)
-        content = $2
-        "<haml:#{tag}>#{ruby}\n<haml:html>#{content}</haml:html></haml:#{tag}>"
-      end
-    end
+
   end
 end
