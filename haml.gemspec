@@ -24,7 +24,7 @@ HAML_GEMSPEC = Gem::Specification.new do |spec|
 
   spec.add_development_dependency 'yard', '>= 0.2.3'
   spec.add_development_dependency 'maruku', '>= 0.5.9'
-  spec.add_dependency 'parse_tree', '>= 2.1.1'
+  spec.add_dependency 'ParseTree', '>= 2.1.1'
 
   # We need the revision file to exist,
   # so we just create it if it doesn't.
