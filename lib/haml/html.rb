@@ -4,7 +4,6 @@ require 'haml/engine'
 require 'rubygems'
 require 'cgi'
 require 'haml/herb'
-require 'parse_tree'
 
 module Haml
   class HTML
@@ -60,7 +59,8 @@ require 'hpricot'
 
 module Haml
   # Converts HTML documents into Haml templates.
-  # Depends on [Hpricot](http://code.whytheluckystiff.net/hpricot/) for HTML parsing.
+  # Depends on [Hpricot](http://code.whytheluckystiff.net/hpricot/) and
+  # [ParseTree](http://parsetree.rubyforge.org/) for HTML parsing
   #
   # Example usage:
   #
@@ -73,6 +73,7 @@ module Haml
     # @option options :xhtml [Boolean] (false) Whether or not to parse
     #   the HTML strictly as XHTML
     def initialize(template, options = {})
+      
       @options = options
 
       if template.is_a? Hpricot::Node
@@ -296,7 +297,7 @@ module Haml
           begin
             ParseTree.translate(code)
             "<haml:silent>#{code}</haml:silent>"
-          rescue Exception
+          rescue Exception => e # For some reason, trying to catch SyntaxError doesn't work
             "<haml:silent>#{code}<haml:block>"
           end
         end

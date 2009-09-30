@@ -3,5 +3,13 @@
 require File.dirname(__FILE__) + '/../lib/haml'
 require 'haml/exec'
 
+begin
+  require 'parse_tree'
+rescue LoadError
+  $stderr.puts "html2haml requires ParseTree to be installed."
+  $stderr.puts "Install it with `sudo gem install ParseTree`"
+  exit
+end
+
 opts = Haml::Exec::HTML2Haml.new(ARGV)
 opts.parse!
